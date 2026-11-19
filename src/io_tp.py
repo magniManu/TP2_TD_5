@@ -13,8 +13,8 @@ def parsear_argumentos(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("archivo_output", help="Ruta al archivo de salida con la solución")
     parser.add_argument(
         "--metodo",
-        default="placeholder",
-        help="Método a ejecutar (por defecto: placeholder)",
+        default="metaheuristica",
+        help="Método a ejecutar (por defecto: metaheuristica)",
     )
     parser.add_argument(
         "--alpha",
@@ -45,6 +45,12 @@ def parsear_argumentos(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=3,
         help="Tamaño de la lista restringida de candidatos en GRASP (por defecto: 3)",
+    )
+    parser.add_argument(
+        "--temperatura",
+        default="4cat",
+        choices=["4cat", "3cat_frio", "3cat_amb", "2cat", "sin_temp"],
+        help="Criterio de compatibilidad térmica entre productos (por defecto: 4cat)",
     )
     parser.add_argument(
         "-v",

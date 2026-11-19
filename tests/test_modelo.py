@@ -10,6 +10,7 @@ from src.io_tp import calcular_metricas, leer_instancia, validar_solucion_basica
 from src.modelo import (
     es_solucion_factible,
     es_vehiculo_valido,
+    grupo_termico,
     peso_vehiculo_valida,
     temperatura_producto,
     temperatura_vehiculo_valida,
@@ -70,6 +71,29 @@ class TestValidacionesVehiculo(unittest.TestCase):
         self.assertFalse(temperatura_vehiculo_valida([0, 2], self.inst))
         self.assertFalse(temperatura_vehiculo_valida([5], self.inst))
         self.assertFalse(temperatura_vehiculo_valida([3, 5], self.inst))
+
+    def test_criterios_temperatura(self) -> None:
+        """Cada criterio define qué categorías pueden compartir vehículo."""
+        import dataclasses
+        casos = {
+            # criterio: (congelado+refrigerado, ambiente+caliente, congelado+caliente)
+            "4cat": (False, False, False),
+            "3cat_frio": (True, False, False),
+            "3cat_amb": (False, True, False),
+            "2cat": (True, True, False),
+            "sin_temp": (True, True, True),
+        }
+        for criterio, (frio, no_frio, extremos) in casos.items():
+            inst = dataclasses.replace(self.inst, criterio_temperatura=criterio)
+            with self.subTest(criterio=criterio):
+                self.assertEqual(temperatura_vehiculo_valida([0, 2], inst), frio)
+                self.assertEqual(temperatura_vehiculo_valida([3, 4], inst), no_frio)
+                self.assertEqual(temperatura_vehiculo_valida([0, 4], inst), extremos)
+                # Un producto con temperatura incorrecta nunca es válido
+                self.assertFalse(temperatura_vehiculo_valida([5], inst))
+        self.assertIsNone(grupo_termico(self.productos[5]))
+        with self.assertRaises(ValueError):
+            grupo_termico(self.productos[0], "criterio_inexistente")
 
     def test_peso_vehiculo_valida(self) -> None:
         self.assertTrue(peso_vehiculo_valida([], self.inst))

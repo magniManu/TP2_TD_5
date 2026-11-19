@@ -1,7 +1,7 @@
 import random
 
 from src.tipos import Instancia, Metricas, Producto, Solucion, Temperatura
-from src.modelo import es_solucion_factible, temperatura_producto, peso_vehiculo, es_vehiculo_valido, productos_de_vehiculo
+from src.modelo import es_solucion_factible
 from src.constructivas import constructiva_similitud
 from src.busqueda_local import busqueda_local
 from src.io_tp import calcular_metricas

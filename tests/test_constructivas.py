@@ -27,6 +27,16 @@ class TestConstructivas(unittest.TestCase):
                     sol = fn(inst)
                     self.assertTrue(es_solucion_factible(inst, sol))
 
+    def test_factibilidad_con_todos_los_criterios_de_temperatura(self) -> None:
+        import dataclasses
+        from src.modelo import CRITERIOS_TEMPERATURA
+        base = leer_instancia(ROOT / "data" / "ejemplo_chico_10.txt")
+        for criterio in CRITERIOS_TEMPERATURA:
+            inst = dataclasses.replace(base, criterio_temperatura=criterio)
+            for fn in (constructiva_temperatura_peso, constructiva_similitud):
+                with self.subTest(criterio=criterio, metodo=fn.__name__):
+                    self.assertTrue(es_solucion_factible(inst, fn(inst)))
+
     def test_similitud_supera_peso_cuando_hay_afinidad_fuerte(self) -> None:
         # 4 congelados, capacidad 10:
         # 0 (w=5) y 1 (w=4) son muy similares (0.95)

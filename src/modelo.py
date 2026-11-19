@@ -17,20 +17,75 @@ def temperatura_producto(producto: Producto) -> Temperatura:
     else:
         return Temperatura.INCORRECTA       #  # si el producto no esta entre -100 y 150 grados no lo podemos transportar, seria irreal. lo marcamos como incorrecto
 
+# Criterios de temperatura que comparamos experimentalmente (exp4).
+# Cada criterio agrupa las 4 categorías térmicas en "grupos": dos productos
+# pueden viajar en el mismo vehículo sólo si pertenecen al mismo grupo.
+#   4cat     : congelado | refrigerado | ambiente | caliente   (criterio por defecto)
+#   3cat_frio: congelado+refrigerado | ambiente | caliente
+#   3cat_amb : congelado | refrigerado | ambiente+caliente
+#   2cat     : congelado+refrigerado | ambiente+caliente
+#   sin_temp : todos juntos (BPP clásico, sirve como línea de base)
+CRITERIOS_TEMPERATURA: dict[str, dict[Temperatura, str]] = {
+    "4cat": {
+        Temperatura.CONGELADO: "congelado",
+        Temperatura.REFRIGERADO: "refrigerado",
+        Temperatura.AMBIENTE: "ambiente",
+        Temperatura.CALIENTE: "caliente",
+    },
+    "3cat_frio": {
+        Temperatura.CONGELADO: "frio",
+        Temperatura.REFRIGERADO: "frio",
+        Temperatura.AMBIENTE: "ambiente",
+        Temperatura.CALIENTE: "caliente",
+    },
+    "3cat_amb": {
+        Temperatura.CONGELADO: "congelado",
+        Temperatura.REFRIGERADO: "refrigerado",
+        Temperatura.AMBIENTE: "no_frio",
+        Temperatura.CALIENTE: "no_frio",
+    },
+    "2cat": {
+        Temperatura.CONGELADO: "frio",
+        Temperatura.REFRIGERADO: "frio",
+        Temperatura.AMBIENTE: "no_frio",
+        Temperatura.CALIENTE: "no_frio",
+    },
+    "sin_temp": {
+        Temperatura.CONGELADO: "unico",
+        Temperatura.REFRIGERADO: "unico",
+        Temperatura.AMBIENTE: "unico",
+        Temperatura.CALIENTE: "unico",
+    },
+}
+
+
+def grupo_termico(producto: Producto, criterio: str = "4cat") -> str | None:
+    """Devuelve el grupo térmico del producto según el criterio, o None si su
+    temperatura es INCORRECTA (fuera de rango, no se puede transportar)."""
+    if criterio not in CRITERIOS_TEMPERATURA:
+        raise ValueError(f"Criterio de temperatura desconocido: {criterio}")
+    categoria = temperatura_producto(producto)
+    if categoria == Temperatura.INCORRECTA:
+        return None
+    return CRITERIOS_TEMPERATURA[criterio][categoria]
+
+
+def grupos_ordenados(criterio: str) -> list[str]:
+    """Grupos del criterio en orden de frío a caliente (sin repetidos)."""
+    return list(dict.fromkeys(CRITERIOS_TEMPERATURA[criterio].values()))
+
+
 def temperatura_vehiculo_valida(vehiculo, inst: Instancia) -> bool:
     """ En base a un vehiculo y una instancia, nos fijamos si las temperaturas del
-        vehiculo son similares. La temperatura está dividida en 4 grupos. Tienen que
-        estar todos los productos dentro del mismo grupo.
+        vehiculo son compatibles: todos los productos tienen que pertenecer al mismo
+        grupo térmico según inst.criterio_temperatura (por defecto, las 4 categorías).
     """
     # vehiculo es una lista de numeros, cada numero es un id de un producto
-    # la instancia es el texto completo del input
-    
     if len(vehiculo)>0:
-        temperatura_vehiculo = temperatura_producto(inst.productos[vehiculo[0]])
+        grupo_vehiculo = grupo_termico(inst.productos[vehiculo[0]], inst.criterio_temperatura)
         for producto in vehiculo:
-            if temperatura_producto(inst.productos[producto]) == Temperatura.INCORRECTA:
-                return False
-            if temperatura_producto(inst.productos[producto]) != temperatura_vehiculo:
+            grupo = grupo_termico(inst.productos[producto], inst.criterio_temperatura)
+            if grupo is None or grupo != grupo_vehiculo:
                 return False
         return True
     else: return True
@@ -66,28 +121,3 @@ def es_solucion_factible(inst:Instancia, sol: Solucion) -> bool:
         if es_vehiculo_valido(vehiculo, inst)!=True:
             return False
     return True
-
-def productos_de_vehiculo(inst:Instancia, v: int | list[int], sol: Solucion) -> list[Producto]:
-    if type(v) == int:
-        if v >= len(sol.vehiculos):
-            return []
-        vehiculo = sol.vehiculos[v]
-    elif type(vehiculo) == list[int]:
-        vehiculo = v
-    else: return []
-    
-    if ((not es_vehiculo_valido(vehiculo, inst)) or (not es_solucion_factible(inst,sol))): 
-        return []
-    
-    productos = []
-    j=0
-    
-    for i in inst.productos:
-        if inst.productos[i].id == vehiculo[j]:
-            j+=1
-            productos.append(inst.productos[i])
-
-    return productos
-        
-            
-    

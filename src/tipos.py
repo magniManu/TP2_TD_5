@@ -19,6 +19,7 @@ class Instancia:
     capacidad_vehiculo: float  # Capacidad máxima de cada vehículo (nombre obligatorio)
     productos: list[Producto]
     similitud: list[list[float]]  # Matriz simétrica n x n con valores en [0, 1]
+    criterio_temperatura: str = "4cat"  # ver src/modelo.py: CRITERIOS_TEMPERATURA
 
 
 @dataclass

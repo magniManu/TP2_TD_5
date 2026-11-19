@@ -31,6 +31,7 @@ def main() -> int:
         # leemos los argumentos y la instancia
         cfg = parsear_argumentos()
         inst = leer_instancia(cfg.archivo_input)
+        inst.criterio_temperatura = cfg.temperatura
 
         if cfg.verbose:
             print(
@@ -43,7 +44,6 @@ def main() -> int:
         # leemos el metodo usado
         if cfg.metodo == "placeholder":
             sol = resolver_placeholder(inst)
-        # TODO: Agregar acá los métodos implementados por el grupo, por ejemplo:
         elif cfg.metodo == "constructiva1":
             sol = constructiva_temperatura_peso(inst)
         elif cfg.metodo == "constructiva2":
@@ -54,8 +54,6 @@ def main() -> int:
             sol = busqueda_local(constructiva_similitud(inst), inst, cfg.alpha, cfg.beta)
         elif cfg.metodo == "metaheuristica":
             sol = metaheuristica(inst, cfg.alpha, cfg.beta, cfg.semilla, cfg.max_iter, cfg.top_k)
-        elif cfg.metodo == "test":
-            print(min([5,2,3,9,7,8]))            
         else:
             raise ValueError(f"Método desconocido: {cfg.metodo}")
 

@@ -1,4 +1,4 @@
-from src.modelo import es_solucion_factible, temperatura_producto, peso_vehiculo, es_vehiculo_valido, productos_de_vehiculo
+from src.modelo import es_solucion_factible, grupo_termico, peso_vehiculo, es_vehiculo_valido
 from src.tipos import Instancia, Producto, Solucion, Temperatura
 from src.io_tp import calcular_metricas
 
@@ -18,7 +18,7 @@ def relocate(sol: Solucion, inst: Instancia, pos_vehiculoA: int, pos_vehiculoB: 
         (peso_vehiculo(vehiculos0[pos_vehiculoB], inst) < 0) or
         not es_vehiculo_valido(vehiculos0[pos_vehiculoA], inst) or
         not es_vehiculo_valido(vehiculos0[pos_vehiculoB], inst) or
-        temperatura_producto(inst.productos[vehiculos0[pos_vehiculoA][0]]) != temperatura_producto(inst.productos[vehiculos0[pos_vehiculoB][0]])
+        grupo_termico(inst.productos[vehiculos0[pos_vehiculoA][0]], inst.criterio_temperatura) != grupo_termico(inst.productos[vehiculos0[pos_vehiculoB][0]], inst.criterio_temperatura)
     ):
         return sol
 
@@ -68,8 +68,8 @@ def swap(
         or len(vehiculos[pos_vehiculoB]) == 0
         or not es_vehiculo_valido(vehiculos[pos_vehiculoA], inst)
         or not es_vehiculo_valido(vehiculos[pos_vehiculoB], inst)
-        or temperatura_producto(inst.productos[vehiculos[pos_vehiculoA][0]])
-        != temperatura_producto(inst.productos[vehiculos[pos_vehiculoB][0]])
+        or grupo_termico(inst.productos[vehiculos[pos_vehiculoA][0]], inst.criterio_temperatura)
+        != grupo_termico(inst.productos[vehiculos[pos_vehiculoB][0]], inst.criterio_temperatura)
     ):
         return Solucion(vehiculos=vehiculos)
 

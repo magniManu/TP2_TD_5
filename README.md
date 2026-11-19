@@ -6,8 +6,6 @@ t_i = temperatura producto
 w_i = peso producto
 s_ij = similitud de productos
 
-Productos: [Producto(id=0, peso=4.0, temperatura=4.0), Producto(id=1, peso=5.0, temperatura=4.0), Producto(id=2, peso=3.0, temperatura=20.0), Producto(id=3, peso=6.0, temperatura=-18.0)]
-
 ## Archivo de entrada: 
 1. n C
 2. w_1 t_1
@@ -24,13 +22,13 @@ Productos: [Producto(id=0, peso=4.0, temperatura=4.0), Producto(id=1, peso=5.0, 
 ## Ejecución
 
 ```bash
-python3 main.py <archivo_input> <archivo_output> [--metodo M] [--alpha A] [--beta B] [--semilla S] [--max_iter I] [--top_k K] [--verbose]
+python3 main.py <archivo_input> <archivo_output> [--metodo M] [--alpha A] [--beta B] [--semilla S] [--max_iter I] [--top_k K] [--temperatura T] [--verbose]
 ```
 
 ### Parámetros
 * `<archivo_input>`: ruta al archivo de instancia con el formato del enunciado.
 * `<archivo_output>`: ruta donde se escribirá la solución (una línea por vehículo, índices base 0).
-* `--metodo M`: algoritmo a ejecutar (por defecto `placeholder`). Opciones disponibles:
+* `--metodo M`: algoritmo a ejecutar (por defecto `metaheuristica`). Opciones disponibles:
   * `placeholder`: solución trivial de prueba (1 producto por vehículo).
   * `constructiva1`: heurística constructiva por categoría térmica y First Fit Decreasing por peso.
   * `constructiva2`: heurística constructiva vehículo por vehículo guiada por similitud.
@@ -39,9 +37,15 @@ python3 main.py <archivo_input> <archivo_output> [--metodo M] [--alpha A] [--bet
   * `metaheuristica`: GRASP usando `constructiva2` aleatorizada + búsqueda local.
 * `--alpha A`: peso $\alpha \ge 0$ de la cantidad de vehículos $K$ en la función objetivo (por defecto `1.0`).
 * `--beta B`: peso $\beta \ge 0$ de la suma de similitudes en la función objetivo (por defecto `1.0`).
-* `--semilla S`: semilla entera no negativa para métodos aleatorios (por defecto `42`).
+* `--semilla S`: semilla entera no negativa para métodos aleatorios (por defecto `18`).
 * `--max_iter I`: cantidad de iteraciones de GRASP en `--metodo metaheuristica` (por defecto `20`).
 * `--top_k K`: tamaño de la lista restringida de candidatos (RCL) en GRASP (por defecto `3`).
+* `--temperatura T`: criterio de compatibilidad térmica (por defecto `4cat`). Dos productos sólo pueden viajar juntos si están en el mismo grupo:
+  * `4cat`: congelado (< −5 °C) | refrigerado (< 10 °C) | ambiente (< 35 °C) | caliente.
+  * `3cat_frio`: congelado + refrigerado | ambiente | caliente.
+  * `3cat_amb`: congelado | refrigerado | ambiente + caliente.
+  * `2cat`: frío (congelado + refrigerado) | no frío (ambiente + caliente).
+  * `sin_temp`: sin restricción térmica (BPP clásico, sólo como línea de base).
 * `--verbose` / `-v`: imprime información adicional de la instancia cargada.
 
 ### Ejemplos de prueba
@@ -63,7 +67,7 @@ python3 main.py data/ejemplo_enunciado.txt salida_ejemplo.txt --metodo metaheuri
 * **Correr los 3 experimentos (genera CSVs en `resultados/`):**
   ```bash
   python3 scripts/experimentos.py
-  # O por separado: --solo exp1 | --solo exp2 | --solo exp3
+  # O por separado: --solo exp1 | exp2 | exp3 | exp4
   ```
 
 ## Estructura del proyecto

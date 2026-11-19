@@ -1,22 +1,31 @@
 import random
 
-from src.modelo import es_solucion_factible, temperatura_producto
-from src.tipos import Instancia, Producto, Solucion, Temperatura
+from src.modelo import es_solucion_factible, grupo_termico, grupos_ordenados
+from src.tipos import Instancia, Producto, Solucion
+
+
+def agrupar_por_temperatura(inst: Instancia) -> dict[str, list[Producto]]:
+    """Separa los productos según su grupo térmico (inst.criterio_temperatura).
+    Devuelve los grupos ordenados de frío a caliente."""
+    grupos: dict[str, list[Producto]] = {g: [] for g in grupos_ordenados(inst.criterio_temperatura)}
+    invalidos = []
+    for producto in inst.productos:
+        g = grupo_termico(producto, inst.criterio_temperatura)
+        if g is None:
+            invalidos.append(producto.id)
+        else:
+            grupos[g].append(producto)
+    if invalidos:
+        raise ValueError(f"Hay productos con temperatura fuera de rango: {invalidos}")
+    return grupos
 
 def constructiva_temperatura_peso(inst:Instancia) -> Solucion:
     """Primero separamos por temperatura y despues ordenamos por peso"""
     sol = Solucion()
-    temperaturas_dict = {Temperatura.CONGELADO: [], Temperatura.REFRIGERADO: [], Temperatura.AMBIENTE: [], Temperatura.CALIENTE: [], Temperatura.INCORRECTA: []}
-    for producto in inst.productos:
-        temperaturas_dict[temperatura_producto(producto)].append(producto)
-    
-    categorias_temp = [Temperatura.CONGELADO, Temperatura.REFRIGERADO, Temperatura.AMBIENTE, Temperatura.CALIENTE]
-    if temperaturas_dict[Temperatura.INCORRECTA]:
-            ids_invalidos = [p.id for p in temperaturas_dict[Temperatura.INCORRECTA]]
-            raise ValueError(f"Hay productos con temperatura fuera de rango: {ids_invalidos}")
-    
-    for cat in categorias_temp:
-        productos_ordenados = sorted(temperaturas_dict[cat], key=lambda p: p.peso, reverse=True)
+    temperaturas_dict = agrupar_por_temperatura(inst)
+
+    for cat, productos_cat in temperaturas_dict.items():
+        productos_ordenados = sorted(productos_cat, key=lambda p: p.peso, reverse=True)
         vehiculos_cat: list[list[int]] = []
         pesos_cat: list[float] = []
 
@@ -66,35 +75,17 @@ def constructiva_similitud(
         rng = random.Random()
 
     sol = Solucion()
-    temperaturas_dict: dict[Temperatura, list[Producto]] = {
-        Temperatura.CONGELADO: [],
-        Temperatura.REFRIGERADO: [],
-        Temperatura.AMBIENTE: [],
-        Temperatura.CALIENTE: [],
-        Temperatura.INCORRECTA: [],
-    }
     for producto in inst.productos:
         if producto.peso <= 0 or producto.peso > inst.capacidad_vehiculo + 1e-9:
             raise ValueError(
                 f"El producto {producto.id} tiene peso inválido ({producto.peso}) "
                 f"para capacidad_vehiculo={inst.capacidad_vehiculo}."
             )
-        temperaturas_dict[temperatura_producto(producto)].append(producto)
+    temperaturas_dict = agrupar_por_temperatura(inst)
 
-    if temperaturas_dict[Temperatura.INCORRECTA]:
-        ids_invalidos = [p.id for p in temperaturas_dict[Temperatura.INCORRECTA]]
-        raise ValueError(f"Hay productos con temperatura fuera de rango: {ids_invalidos}")
-
-    categorias_temp = [
-        Temperatura.CONGELADO,
-        Temperatura.REFRIGERADO,
-        Temperatura.AMBIENTE,
-        Temperatura.CALIENTE,
-    ]
-
-    for cat in categorias_temp:
+    for cat, productos_cat in temperaturas_dict.items():
         # Ordenamos por peso descendente para tomar semillas pesadas primero.
-        libres = sorted(temperaturas_dict[cat], key=lambda p: (-p.peso, p.id))
+        libres = sorted(productos_cat, key=lambda p: (-p.peso, p.id))
 
         while libres:
             semilla = libres.pop(0)

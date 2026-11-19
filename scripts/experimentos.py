@@ -4,6 +4,7 @@ Genera archivos CSV en `resultados/` y resúmenes por consola para:
   1. exp1_alpha_beta.csv: sensibilidad de alpha y beta (trade-off entre K y similitud).
   2. exp2_tuning_grasp.csv: tuning de top_k y max_iter en GRASP.
   3. exp3_comparacion_metodos.csv: comparación de constructivas, búsqueda local y GRASP.
+  4. exp4_criterios_temperatura.csv: costo (en vehículos) y calidad de cada criterio térmico.
 
 Uso:
     python3 scripts/experimentos.py
@@ -14,6 +15,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+import dataclasses
+import math
 import sys
 import time
 from pathlib import Path
@@ -26,8 +29,8 @@ from src.busqueda_local import busqueda_local
 from src.constructivas import constructiva_similitud, constructiva_temperatura_peso
 from src.io_tp import calcular_metricas, leer_instancia
 from src.metaheuristica import metaheuristica
-from src.modelo import es_solucion_factible
-from src.tipos import Instancia, Solucion
+from src.modelo import CRITERIOS_TEMPERATURA, es_solucion_factible, grupo_termico, temperatura_producto
+from src.tipos import Instancia, Solucion, Temperatura
 
 
 def contar_pares_intra_vehiculo(sol: Solucion) -> int:
@@ -107,6 +110,7 @@ def exp1_alpha_beta(carpeta_data: Path, carpeta_res: Path) -> None:
                         "suma_similitudes": round(m.suma_similitudes, 4),
                         "similitud_promedio_par": round(sim_prom, 4),
                         "objetivo_base": round(m.objetivo_base, 4),
+                        "pares_similitud_baja": metricas_calidad_carga(inst, sol)["pares_similitud_baja"],
                         "tiempo_ms": round(tiempo_ms, 2),
                     }
                 )
@@ -128,6 +132,7 @@ def exp1_alpha_beta(carpeta_data: Path, carpeta_res: Path) -> None:
             "suma_similitudes",
             "similitud_promedio_par",
             "objetivo_base",
+            "pares_similitud_baja",
             "tiempo_ms",
         ],
         filas,
@@ -265,11 +270,96 @@ def exp3_comparacion_metodos(carpeta_data: Path, carpeta_res: Path) -> None:
     print(f"Guardado: {ruta.relative_to(ROOT)}")
 
 
+def cota_inferior_vehiculos(inst: Instancia) -> int:
+    """Cota inferior de K: en cada grupo térmico hacen falta al menos
+    ceil(peso_total_grupo / C) vehículos (con sin_temp es la cota clásica del BPP)."""
+    pesos: dict[str, float] = {}
+    for p in inst.productos:
+        g = grupo_termico(p, inst.criterio_temperatura)
+        pesos[g] = pesos.get(g, 0.0) + p.peso
+    return sum(math.ceil(w / inst.capacidad_vehiculo - 1e-9) for w in pesos.values())
+
+
+def metricas_calidad_carga(inst: Instancia, sol: Solucion) -> dict[str, int]:
+    """Cuenta pares de productos que viajan juntos y que Todiafour probablemente
+    no aceptaría (independiente del criterio usado para construir la solución)."""
+    mezcla_cat = cong_cal = dif_15 = baja_sim = 0
+    for v in sol.vehiculos:
+        for a in range(len(v)):
+            pa = inst.productos[v[a]]
+            for b in range(a + 1, len(v)):
+                pb = inst.productos[v[b]]
+                ca, cb = temperatura_producto(pa), temperatura_producto(pb)
+                if ca != cb:
+                    mezcla_cat += 1
+                if {ca, cb} == {Temperatura.CONGELADO, Temperatura.CALIENTE}:
+                    cong_cal += 1
+                if abs(pa.temperatura - pb.temperatura) > 15.0:
+                    dif_15 += 1
+                if inst.similitud[v[a]][v[b]] < 0.2:
+                    baja_sim += 1
+    return {
+        "pares_distinta_categoria": mezcla_cat,
+        "pares_congelado_caliente": cong_cal,
+        "pares_dif_temp_mayor_15": dif_15,
+        "pares_similitud_baja": baja_sim,
+    }
+
+
+def exp4_criterios_temperatura(carpeta_data: Path, carpeta_res: Path) -> None:
+    print("\n=== Experimento 4: Criterios de temperatura ===")
+    archivos = sorted(p.name for p in carpeta_data.glob("*.txt"))
+    criterios = list(CRITERIOS_TEMPERATURA.keys())
+    metodos = ["bl1", "bl2", "metaheuristica"]
+    alpha, beta = 1.0, 0.5
+
+    filas: list[dict[str, object]] = []
+    for nombre in archivos:
+        base = leer_instancia(carpeta_data / nombre)
+        for criterio in criterios:
+            inst = dataclasses.replace(base, criterio_temperatura=criterio)
+            cota = cota_inferior_vehiculos(inst)
+            for metodo in metodos:
+                sol, tiempo_ms = correr_metodo(
+                    metodo, inst, alpha=alpha, beta=beta, semilla=18, max_iter=15, top_k=3
+                )
+                m = calcular_metricas(inst, sol, alpha, beta)
+                pares = contar_pares_intra_vehiculo(sol)
+                calidad = metricas_calidad_carga(inst, sol)
+                filas.append(
+                    {
+                        "instancia": nombre,
+                        "n": inst.n,
+                        "criterio": criterio,
+                        "metodo": metodo,
+                        "K": m.cantidad_vehiculos,
+                        "cota_inferior_K": cota,
+                        "suma_similitudes": round(m.suma_similitudes, 4),
+                        "similitud_promedio_par": round(
+                            m.suma_similitudes / pares if pares else 0.0, 4
+                        ),
+                        "objetivo_base": round(m.objetivo_base, 4),
+                        **calidad,
+                        "tiempo_ms": round(tiempo_ms, 2),
+                        "factible": es_solucion_factible(inst, sol),
+                    }
+                )
+                print(
+                    f"{nombre:30s} {criterio:9s} {metodo:14s} -> K={m.cantidad_vehiculos:2d} "
+                    f"(LB={cota:2d}) cong-cal={calidad['pares_congelado_caliente']:3d} "
+                    f"sim<0.2={calidad['pares_similitud_baja']:4d} t={tiempo_ms:7.1f} ms"
+                )
+
+    ruta = carpeta_res / "exp4_criterios_temperatura.csv"
+    guardar_csv(ruta, list(filas[0].keys()), filas)
+    print(f"Guardado: {ruta.relative_to(ROOT)}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Corre experimentos del TP2.")
     parser.add_argument(
         "--solo",
-        choices=["exp1", "exp2", "exp3"],
+        choices=["exp1", "exp2", "exp3", "exp4"],
         default=None,
         help="Ejecuta únicamente uno de los 3 experimentos.",
     )
@@ -290,6 +380,8 @@ def main() -> None:
         exp2_tuning_grasp(carpeta_data, carpeta_res)
     if args.solo in (None, "exp3"):
         exp3_comparacion_metodos(carpeta_data, carpeta_res)
+    if args.solo in (None, "exp4"):
+        exp4_criterios_temperatura(carpeta_data, carpeta_res)
 
 
 if __name__ == "__main__":
